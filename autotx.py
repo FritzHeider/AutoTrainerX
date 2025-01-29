@@ -1,100 +1,49 @@
-# Standard library imports
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
+from fastapi_jwt_auth import AuthJWT
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from sqlalchemy.ext.asyncio import AsyncSession
+import boto3
 import os
-import json
-import logging
 import asyncio
-from pathlib import Path
-from typing import List, Dict, Any, Tuple, Optional
-from enum import Enum
-
-# Third-party imports
 import aiofiles
-import httpx
-import PyPDF2
-import pandas as pd
-import openai
-from fastapi import FastAPI, File, UploadFile, HTTPException
-import uvicorn
-import streamlit as st
-import nltk
-from nltk.corpus import stopwords
-import re
 
-# Configure structured logging
-log_dir = Path("logs")
-log_dir.mkdir(exist_ok=True)
+AWS_BUCKET_NAME = os.getenv("AWS_BUCKET_NAME")
+AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY")
+AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY")
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler(log_dir / "app.log"), logging.StreamHandler()],
-)
+s3_client = boto3.client("s3", aws_access_key_id=AWS_ACCESS_KEY, aws_secret_access_key=AWS_SECRET_KEY)
+limiter = Limiter(key_func=get_remote_address)
 
-logger = logging.getLogger(__name__)
+async def upload_to_s3(file_path: str, s3_key: str) -> str:
+    """Uploads file to AWS S3 and returns URL."""
+    s3_client.upload_file(file_path, AWS_BUCKET_NAME, s3_key)
+    return f"https://{AWS_BUCKET_NAME}.s3.amazonaws.com/{s3_key}"
 
-# NLP Preprocessing Setup
-nltk.download("stopwords")
-STOPWORDS = set(stopwords.words("english"))
+@app.post("/upload/")
+async def upload_files(files: List[UploadFile] = File(...), db: AsyncSession = Depends(get_db)):
+    """Handles file uploads with JWT authentication and cloud storage."""
+    tasks = [process_file(file) for file in files]
+    file_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-def clean_text(text: str) -> str:
-    """Cleans input text using NLP techniques."""
-    text = text.lower()
-    text = re.sub(r"\s+", " ", text)
-    text = re.sub(r"[^\w\s]", "", text)
-    text = " ".join(word for word in text.split() if word not in STOPWORDS)
-    return text
+    for result in file_results:
+        if isinstance(result, dict):
+            db.add(UploadedFile(filename=result["filename"], s3_url=result["s3_url"]))
 
-# AI Model Selection
-def select_model(text: str) -> str:
-    """Selects GPT-3.5-Turbo or GPT-4 based on input size and complexity."""
-    token_count = len(text.split())
-    return "gpt-4" if token_count > 1500 else "gpt-3.5-turbo"
-
-async def fetch_with_retries(api_call, retries=3, delay=2):
-    """Retries API calls with exponential backoff."""
-    for attempt in range(retries):
-        try:
-            return await api_call()
-        except openai.error.OpenAIError as e:
-            if attempt < retries - 1:
-                await asyncio.sleep(delay * (2 ** attempt))
-            else:
-                raise HTTPException(status_code=500, detail=f"OpenAI API error: {str(e)}")
-
-async def analyze_content(text: str) -> Tuple[str, float, Optional[str]]:
-    """Uses OpenAI to analyze and categorize content."""
-    model = select_model(text)
-    text = clean_text(text)
-
-    async with httpx.AsyncClient() as client:
-        response = await fetch_with_retries(lambda: client.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}"},
-            json={
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": "Classify the text into conversation, technical docs, nonsense, or irrelevant."},
-                    {"role": "user", "content": text[:1500]}
-                ]
-            }
-        ))
-
-    result = response.json()
-    return result["category"], float(result["confidence"]), result["explanation"]
+    await db.commit()
+    return {"message": "Files uploaded and stored in S3."}
 
 @app.post("/query/")
-async def query_model(prompt: str):
-    """Query the fine-tuned model with dynamic model selection."""
-    if not prompt.strip():
-        raise HTTPException(status_code=400, detail="Empty prompt")
-
+@limiter.limit("5/minute")
+async def query_model(prompt: str, auth: AuthJWT = Depends()):
+    """Query AI model with JWT authentication."""
+    auth.jwt_required()
     model = select_model(prompt)
 
     async with httpx.AsyncClient() as client:
         response = await fetch_with_retries(lambda: client.post(
             "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}"},
             json={"model": model, "messages": [{"role": "user", "content": prompt}]}
         ))
 
-    return {"response": response.json()["choices"][0]["message"]["content"]}
+    return {"response": response.json()["choices"][0]["message"]["content"]}s
