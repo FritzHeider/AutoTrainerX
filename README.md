@@ -1,95 +1,131 @@
+🚀 GPT Fine-Tuning & File Processing API - README Update
 
-# AutoTrainerX
+📌 Overview
 
-## 📚 Table of Contents
-- [Overview](#-overview)
-- [Features](#-features)
-- [Prerequisites](#-prerequisites)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [API Endpoints](#-api-endpoints)
-- [License](#-license)
-- [Contributing](#-contributing)
-- [Future Enhancements](#-future-enhancements)
-- [Contact](#-contact)
+This project is a high-performance AI fine-tuning & file processing system that:
+✅ Supports PDF, TXT, CSV uploads.
+✅ Uses OpenAI GPT-4 & GPT-3.5-Turbo for fine-tuning and queries.
+✅ Stores files in AWS S3 instead of local storage.
+✅ Uses PostgreSQL to track uploaded files & metadata.
+✅ Secures API with JWT authentication and rate limiting.
+✅ Features a modern Streamlit UI with Dark Mode, File Uploads, AI Query & Progress Bars.
 
-## 🚀 Overview
-AutoTrainerX is an automated AI fine-tuning pipeline that allows users to upload, process, and fine-tune models using OpenAI's GPT models. It features seamless file handling, intelligent data categorization, and a streamlined fine-tuning pipeline.
+📁 Features
 
-## 🎯 Features
-- **Multi-File Uploads:** Supports PDF, TXT, and CSV formats.
-- **Content Categorization:** Uses AI to filter and classify text.
-- **Fine-Tuning Pipeline:** Converts extracted text into structured training data.
-- **REST API Integration:** FastAPI-powered backend with endpoints for uploading and querying models.
-- **Web Interface:** Streamlit-powered UI for user-friendly interactions.
-- **Real-Time AI Querying:** Allows users to interact with fine-tuned models.
-- **Robust Logging & Error Handling:** Ensures smooth operation.
+1️⃣ API Enhancements
+	•	✅ FastAPI-based Backend (Asynchronous processing with asyncio)
+	•	✅ Automatic Model Selection (GPT-3.5-Turbo for short texts, GPT-4 for complex texts)
+	•	✅ AWS S3 Cloud Storage (Scalable file management)
+	•	✅ PostgreSQL Database Integration (Tracks file metadata)
+	•	✅ JWT Authentication (Secure API access)
+	•	✅ Rate Limiting (Prevents API abuse)
+	•	✅ Error Handling & Logging (Structured logs in logs/app.log)
 
-## 📋 Prerequisites
-- Python 3.8+
-- OpenAI API Key
+2️⃣ AI Processing
+	•	✅ AI-Assisted Preprocessing (Stopword removal, text cleaning via nltk)
+	•	✅ Fine-Tuning Data Formatting (Automatic conversation extraction)
+	•	✅ Dynamic Model Switching (GPT-4 for large files, GPT-3.5 for smaller ones)
 
-## 🛠️ Installation
-Ensure you have Python 3.8+ installed.
+3️⃣ Streamlit UI
+	•	✅ Dark Mode UI
+	•	✅ File Upload Progress Bar
+	•	✅ Real-time AI Query Interface
+	•	✅ View Processed Files from AWS S3
+	•	✅ Better Error Alerts in UI
 
-```sh
-# Clone the repository
-git clone https://github.com/FritzHeider/AutoTrainerX.git
-cd AutoTrainerX
+🔧 Tech Stack
 
-# Create a virtual environment
+Component	Technology Used
+🏗 Backend	FastAPI (async)
+🤖 AI Model	OpenAI GPT-4 / GPT-3.5-Turbo
+📂 Storage	AWS S3
+🗄 Database	PostgreSQL (asyncpg)
+🔑 Security	JWT Authentication
+⏳ Rate Limiting	SlowAPI (5 requests/min)
+🎨 Frontend	Streamlit (Dark Mode)
+🏗 Deployment	Docker + AWS/GCP
+
+🛠 Installation & Setup
+
+1️⃣ Clone the Repository
+
+git clone https://github.com/your-repo/AI-Fine-Tuning-Tool.git
+cd AI-Fine-Tuning-Tool
+
+2️⃣ Create a Virtual Environment
+
 python -m venv venv
-source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+source venv/bin/activate  # For macOS/Linux
+venv\Scripts\activate  # For Windows
 
-# Install dependencies
+3️⃣ Install Dependencies
+
 pip install -r requirements.txt
-```
 
-## 🚀 Usage
-### **Start FastAPI Server**
-```sh
-uvicorn app:app --host 0.0.0.0 --port 8000
-```
+4️⃣ Set Up Environment Variables
 
-### **Run Streamlit UI**
-```sh
-streamlit run app.py
-```
+Create a .env file with:
 
-### **Sample API Requests**
-- **Upload Files**:
-```sh
-curl -X POST "http://localhost:8000/upload/" -F "files=@sample.pdf"
-```
+OPENAI_API_KEY="your_openai_api_key"
+AWS_BUCKET_NAME="your_s3_bucket"
+AWS_ACCESS_KEY="your_aws_access_key"
+AWS_SECRET_KEY="your_aws_secret_key"
+DATABASE_URL="postgresql+asyncpg://user:password@localhost/dbname"
+JWT_SECRET_KEY="your_jwt_secret"
 
-- **Start Fine-Tuning Job**:
-```sh
-curl -X POST "http://localhost:8000/fine-tune/"
-```
+5️⃣ Start Backend API
 
-- **Query Model**:
-```sh
-curl -X POST "http://localhost:8000/query/" -d '{"prompt": "Hello, how are you?"}'
-```
+uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 
-## 📡 API Endpoints
-| Endpoint       | Method | Description                     |
-| -------------- | ------ | ------------------------------- |
-| `/upload/`     | `POST` | Upload and process files         |
-| `/fine-tune/`  | `POST` | Start fine-tuning job            |
-| `/query/`      | `POST` | Query fine-tuned model           |
+6️⃣ Start Frontend (Streamlit)
 
-## 📝 License
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+streamlit run ui.py
 
-## 👨‍💻 Contributing
-We welcome contributions! Feel free to submit issues and pull requests.
+📌 API Endpoints
 
-## 🛠️ Future Enhancements
-- Add support for more file formats.
-- Implement real-time fine-tuning job tracking.
-- Enhance AI response accuracy with embedding-based analysis.
+Method	Endpoint	Description	Auth Required?
+POST	/upload/	Upload multiple files	❌
+POST	/fine-tune/	Start fine-tuning process	✅
+POST	/query/	Query the fine-tuned AI	✅
+GET	/files/	Get list of uploaded files	❌
 
-## 📧 Contact
-For support or inquiries, reach out via [GitHub Issues](https://github.com/FritzHeider/AutoTrainerX/issues).
+🚀 Usage
 
+1️⃣ Upload Files
+
+curl -X POST "http://localhost:8000/upload/" -F "files=@test.pdf"
+
+2️⃣ Fine-Tune AI Model
+
+curl -X POST "http://localhost:8000/fine-tune/" -H "Authorization: Bearer your_token"
+
+3️⃣ Query AI Model
+
+curl -X POST "http://localhost:8000/query/" -H "Authorization: Bearer your_token" -d '{"prompt": "Explain quantum mechanics"}'
+
+4️⃣ View Uploaded Files
+
+curl -X GET "http://localhost:8000/files/"
+
+🚀 Deployment
+
+1️⃣ Build & Run with Docker
+
+docker build -t ai-fine-tuning .
+docker run -p 8000:8000 ai-fine-tuning
+
+2️⃣ Deploy to AWS/GCP
+
+gcloud run deploy --image=gcr.io/YOUR_PROJECT_ID/ai-fine-tuning
+
+📌 Next Steps
+	•	🔹 Integrate Fine-Tuning Jobs Monitoring
+	•	🔹 Improve AI Response Logging
+	•	🔹 Add Multi-User Authentication
+
+💡 Contributors
+
+👨‍💻 Your Name – AI Engineer
+👨‍🔧 Contributor 2 – Backend Developer
+
+🚀 Fork & contribute to this project! 💡
