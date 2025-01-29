@@ -1,3 +1,4 @@
+```python
 # Standard library imports
 import os
 import json
@@ -18,7 +19,7 @@ from pydantic import BaseSettings
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # Changed to DEBUG to capture detailed logs
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -41,27 +42,85 @@ app = FastAPI()
 # Create upload directory
 Path(settings.upload_dir).mkdir(exist_ok=True)
 
-# Function to extract text from PDFs
-def extract_text_from_pdf(pdf_path):
+def extract_text_from_pdf(pdf_path: str) -> str:
+    """
+    Extract text from a PDF file.
+
+    Args:
+        pdf_path (str): Path to the PDF file.
+
+    Returns:
+        str: Extracted text.
+    """
     text = ""
-    with open(pdf_path, "rb") as file:
-        reader = PyPDF2.PdfReader(file)
-        for page in reader.pages:
-            text += page.extract_text() + "\n"
+    try:
+        with open(pdf_path, "rb") as file:
+            reader = PyPDF2.PdfReader(file)
+            for page in reader.pages:
+                text += page.extract_text() + "\n"
+        logger.info(f"Extracted text from PDF: {pdf_path}")
+    except FileNotFoundError as e:
+        logger.error(f"PDF file not found: {str(e)}")
+        raise HTTPException(status_code=404, detail="PDF file not found")
+    except Exception as e:
+        logger.error(f"Error extracting text from PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error extracting text from PDF")
     return text
 
-# Function to load text files
-def load_text_file(text_path):
-    with open(text_path, "r", encoding="utf-8") as file:
-        return file.read()
+def load_text_file(text_path: str) -> str:
+    """
+    Load text from a file.
 
-# Function to load CSV files
-def load_csv_data(csv_path):
-    df = pd.read_csv(csv_path)
-    return df.to_dict(orient="records")
+    Args:
+        text_path (str): Path to the text file.
 
-# Function to format text into fine-tuning JSONL format
-def format_for_finetuning(text):
+    Returns:
+        str: Loaded text.
+    """
+    try:
+        with open(text_path, "r", encoding="utf-8") as file:
+            text = file.read()
+        logger.info(f"Loaded text from file: {text_path}")
+    except FileNotFoundError as e:
+        logger.error(f"Text file not found: {str(e)}")
+        raise HTTPException(status_code=404, detail="Text file not found")
+    except Exception as e:
+        logger.error(f"Error loading text file: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error loading text file")
+    return text
+
+def load_csv_data(csv_path: str) -> List[Dict[str, Any]]:
+    """
+    Load data from a CSV file.
+
+    Args:
+        csv_path (str): Path to the CSV file.
+
+    Returns:
+        List[Dict[str, Any]]: Loaded CSV data as a list of dictionaries.
+    """
+    try:
+        df = pd.read_csv(csv_path)
+        data = df.to_dict(orient="records")
+        logger.info(f"Loaded CSV data from file: {csv_path}")
+    except FileNotFoundError as e:
+        logger.error(f"CSV file not found: {str(e)}")
+        raise HTTPException(status_code=404, detail="CSV file not found")
+    except Exception as e:
+        logger.error(f"Error loading CSV data: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error loading CSV data")
+    return data
+
+def format_for_finetuning(text: str) -> List[Dict[str, Any]]:
+    """
+    Format text into fine-tuning JSONL format.
+
+    Args:
+        text (str): Input text to format.
+
+    Returns:
+        List[Dict[str, Any]]: Formatted data for fine-tuning.
+    """
     formatted_data = []
     conversations = text.split("\n\n")  # Assume paragraph breaks indicate separate interactions
     for convo in conversations:
@@ -74,6 +133,7 @@ def format_for_finetuning(text):
                     {"role": "assistant", "content": response.strip()}
                 ]
             })
+    logger.debug(f"Formatted data for fine-tuning: {formatted_data}")
     return formatted_data
 
 class ContentCategory(Enum):
@@ -86,7 +146,12 @@ class ContentCategory(Enum):
 async def analyze_content(text: str) -> Tuple[ContentCategory, float, Optional[str]]:
     """
     Analyze content using LLM to determine quality and category.
-    Returns: (category, confidence_score, explanation)
+
+    Args:
+        text (str): Text to analyze.
+
+    Returns:
+        Tuple[ContentCategory, float, Optional[str]]: (category, confidence_score, explanation)
     """
     try:
         response = await openai.ChatCompletion.acreate(
@@ -111,6 +176,7 @@ async def analyze_content(text: str) -> Tuple[ContentCategory, float, Optional[s
         )
         
         result = json.loads(response.choices[0].message.content)
+        logger.info(f"Content analysis result: {result}")
         return (
             ContentCategory(result["category"]),
             float(result["confidence"]),
@@ -121,16 +187,31 @@ async def analyze_content(text: str) -> Tuple[ContentCategory, float, Optional[s
         return ContentCategory.UNCATEGORIZED, 0.0, str(e)
 
 async def validate_file(file: UploadFile) -> None:
-    """Validate uploaded file size and extension."""
+    """
+    Validate uploaded file size and extension.
+
+    Args:
+        file (UploadFile): Uploaded file to validate.
+    """
     if file.size > settings.max_file_size:
+        logger.warning(f"File too large: {file.filename}")
         raise HTTPException(status_code=400, detail="File too large")
     
     file_ext = Path(file.filename).suffix.lower()
     if file_ext not in settings.allowed_extensions:
+        logger.warning(f"Unsupported file format: {file.filename}")
         raise HTTPException(status_code=400, detail="Unsupported file format")
 
 async def process_file(file: UploadFile) -> List[Dict[str, Any]]:
-    """Process a single file and return formatted data."""
+    """
+    Process a single file and return formatted data.
+
+    Args:
+        file (UploadFile): Uploaded file to process.
+
+    Returns:
+        List[Dict[str, Any]]: Formatted data for fine-tuning.
+    """
     try:
         await validate_file(file)
         file_path = Path(settings.upload_dir) / file.filename
@@ -139,6 +220,7 @@ async def process_file(file: UploadFile) -> List[Dict[str, Any]]:
         content = await file.read()
         await file.seek(0)
         file_path.write_bytes(content)
+        logger.debug(f"Saved file: {file.filename}")
 
         # Process based on file type
         if file_path.suffix.lower() == '.pdf':
@@ -170,12 +252,23 @@ async def process_file(file: UploadFile) -> List[Dict[str, Any]]:
         
         return formatted_data
     
+    except HTTPException as e:
+        logger.warning(f"File {file.filename} rejected: {e.detail}")
+        raise e
     except Exception as e:
         logger.error(f"Error processing file {file.filename}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
 async def split_technical_docs(text: str) -> List[Dict[str, Any]]:
-    """Split technical documentation into Q&A pairs using LLM."""
+    """
+    Split technical documentation into Q&A pairs using LLM.
+
+    Args:
+        text (str): Technical documentation text to split.
+
+    Returns:
+        List[Dict[str, Any]]: Formatted Q&A pairs for fine-tuning.
+    """
     try:
         response = await openai.ChatCompletion.acreate(
             model="gpt-3.5-turbo",
@@ -193,6 +286,7 @@ async def split_technical_docs(text: str) -> List[Dict[str, Any]]:
         )
         
         qa_text = response.choices[0].message.content
+        logger.debug(f"Split technical documentation into Q&A pairs")
         return format_for_finetuning(qa_text)
     
     except Exception as e:
@@ -201,7 +295,15 @@ async def split_technical_docs(text: str) -> List[Dict[str, Any]]:
 
 @app.post("/upload/")
 async def upload_files(files: List[UploadFile] = File(...)):
-    """Handle multiple file uploads and processing."""
+    """
+    Handle multiple file uploads and processing.
+
+    Args:
+        files (List[UploadFile]): List of uploaded files.
+
+    Returns:
+        dict: Response containing the status of file processing.
+    """
     try:
         all_data = []
         results = {category: [] for category in ContentCategory}
@@ -240,7 +342,12 @@ async def upload_files(files: List[UploadFile] = File(...)):
 
 @app.post("/fine-tune/")
 async def fine_tune():
-    """Start fine-tuning process with error handling."""
+    """
+    Start fine-tuning process with error handling.
+
+    Returns:
+        dict: Response containing the fine-tune job ID.
+    """
     try:
         with open("finetune_data.jsonl", "rb") as file:
             response = await openai.File.acreate(
@@ -262,7 +369,15 @@ async def fine_tune():
 
 @app.post("/query/")
 async def query_model(prompt: str):
-    """Query the fine-tuned model with error handling."""
+    """
+    Query the fine-tuned model with error handling.
+
+    Args:
+        prompt (str): Input prompt to query the model.
+
+    Returns:
+        dict: Response containing the model's answer.
+    """
     try:
         if not prompt.strip():
             raise HTTPException(status_code=400, detail="Empty prompt")
