@@ -1,0 +1,34 @@
+AutoTrainerX/
+│── api/                     # API-related code
+│   ├── __init__.py
+│   ├── main.py              # Main FastAPI application
+│   ├── routes.py            # API endpoints
+│   ├── models.py            # Database models / Pydantic schemas
+│   ├── services.py          # Business logic
+│   ├── config.py            # Configuration settings
+│── core/                    # Core functionality (AI training logic)
+│   ├── __init__.py
+│   ├── autotx.py            # Training automation logic
+│   ├── trainer.py           # Model trainer module
+│   ├── evaluator.py         # Model evaluation
+│── ui/                      # UI components
+│   ├── __init__.py
+│   ├── ui.py                # Streamlit app
+│   ├── components.py        # UI components/widgets
+│── utils/                   # Utility functions
+│   ├── __init__.py
+│   ├── logger.py            # Logging configuration
+│   ├── helper.py            # Miscellaneous utilities
+│── tests/                   # Testing
+│   ├── __init__.py
+│   ├── test_api.py          # API tests
+│   ├── test_trainer.py      # Core logic tests
+│── configs/                 # Configuration files
+│   ├── settings.yaml        # Main app settings
+│   ├── logging.conf         # Logging configuration
+│── requirements.txt         # Python dependencies
+│── Dockerfile               # Docker containerization
+│── .env                     # Environment variables
+│── .gitignore               # Git ignore file
+│── README.md                # Project documentation
+│── setup.py                 # Installation script

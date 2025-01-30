@@ -1,0 +1,8 @@
+# configs/settings.yaml
+host: "0.0.0.0"
+port: 8000
+log_level: "info"
+
+database:
+  url: "sqlite:///./database.db"
+  echo: false
