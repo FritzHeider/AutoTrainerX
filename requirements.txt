@@ -1,0 +1,8 @@
+# requirements.txt
+fastapi
+uvicorn
+streamlit
+pydantic
+pytest
+httpx
+pyyaml
